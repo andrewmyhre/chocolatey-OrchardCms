@@ -5,33 +5,6 @@ $url = 'https://orchard.codeplex.com/downloads/get/865709' # download url
 $silentArgs = 'SILENT_ARGS_HERE' # "/s /S /q /Q /quiet /silent /SILENT /VERYSILENT" # try any of these to get the silent installer #msi is always /quiet
 $validExitCodes = @(0) #please insert other valid exit codes here, exit codes for ms http://msdn.microsoft.com/en-us/library/aa368542(VS.85).aspx
 
-if ($env:chocolateyPackageParameters)
-{
-	$paramsData=ConvertFrom-StringData -StringData $($env:chocolateyPackageParameters).replace(";","`n")
-}
-
-$installPath=$paramsData.installPath
-if (!$installPath) { $installPath = 'c:\inetpub\wwwroot\orchard' }
-
-$websiteName="Default Web Site"
-if ($paramsData.websiteName) { $websiteName = $paramsData.websiteName; }
-
-$port=80
-if ($paramsData.port) { $port = $paramsData.port; }
-
-$virtualPath="/orchard"
-if ($paramsData.virtualPath) { $virtualPath=$paramsData.virtualPath }
-
-# main helpers - these have error handling tucked into them already
-# installer, will assert administrative rights
-
-# if removing $url64, please remove from here
-#Install-ChocolateyPackage "$packageName" "$installerType" "$silentArgs" "$url" "$url64"  -validExitCodes $validExitCodes
-# download and unpack a zip file
-
-# if removing $url64, please remove from here
-#Install-ChocolateyZipPackage "$packageName" "$url" "$(Split-Path -parent $MyInvocation.MyCommand.Definition)" "$url64"
-
 try { #error handling is only necessary if you need to do anything in addition to/instead of the main helpers
   # other helpers - using any of these means you want to uncomment the error handling up top and at bottom.
   # downloader that the main helpers use to download items
@@ -53,7 +26,49 @@ try { #error handling is only necessary if you need to do anything in addition t
 
   #------- ADDITIONAL SETUP -------#
   # make sure to uncomment the error handling if you have additional setup to do
-  & "$(Split-Path -parent $MyInvocation.MyCommand.Definition)\Install-Website.ps1" -Source "$(Split-Path -parent $MyInvocation.MyCommand.Definition)\application\orchard" -InstallPath $installPath -WebsiteName $websiteName -VirtualPath $virtualPath -Port $port
+  
+  if ($env:chocolateyPackageParameters)
+  {
+    $paramsData=ConvertFrom-StringData -StringData $($env:chocolateyPackageParameters).replace(";","`n")
+  }
+
+  $installPath=$paramsData.installPath
+  if (!$installPath) { $installPath = 'c:\inetpub\wwwroot\orchard' }
+
+  $websiteName="Default Web Site"
+  if ($paramsData.websiteName) { $websiteName = $paramsData.websiteName; }
+
+  $port=80
+  if ($paramsData.port) { $port = $paramsData.port; }
+
+  $virtualPath="/orchard"
+  if ($paramsData.virtualPath) { $virtualPath=$paramsData.virtualPath }
+
+  $username=$paramsData.username
+  $password=$paramsData.password
+
+  $allow32bit=$false
+  if ($paramsdata.allow32bit) { $allow32bit = $paramsdata.allow32bit}
+
+  $classicPipelineMode=$false
+  if ($paramsdata.classicPipelineMode) { $classicPipelineMode = $paramsdata.classicPipelineMode}
+  
+  $installScript="Install-WebApplication.ps1"
+
+  $installPs1=(join-path $(Split-Path -parent $MyInvocation.MyCommand.Path) -childpath $installScript)
+  if (!(test-path $installPs1))
+  {
+    Write-ChocolateyFailure $packageName "Not found: $installScript"
+  } else {
+    try {
+      & $installPs1 -
+      write-chocolateysuccess $packageName "Installation complete"
+    } catch {
+      Write-ChocolateyFailure $packageName $($_.Exception.Message)
+      throw
+    }
+  }
+
 
   # outputs the bitness of the OS (either "32" or "64")
   #$osBitness = Get-ProcessorBits
